@@ -23,7 +23,7 @@ func newTestServer() *httptest.Server {
 	handler.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, content)
 	})
-	return httptest.NewServer(handler) // This starts and returns a new server
+	return httptest.NewServer(handler)
 }
 
 func TestFetchUrl(t *testing.T) {
@@ -44,15 +44,15 @@ func TestParseContent(t *testing.T) {
 	ts := newTestServer()
 	defer ts.Close()
 
-	_content, _ := concurrency.FetchUrl(ts.URL)
+	content, _ := concurrency.FetchUrl(ts.URL)
 
-	urls, err := concurrency.ParseContent(_content)
+	urls, err := concurrency.ParseContent(content, ts.URL)
 
 	if err != nil {
 		t.Fatalf("Failed to fetch content from test server: %v", err)
 	}
 
-	expectedURLs := []string{"/link1", "/link2"}
+	expectedURLs := []string{ts.URL + "/link1", ts.URL + "/link2"}
 
 	if len(urls) != len(expectedURLs) {
 		t.Errorf("ParseContent() returned %d URLs, want %d", len(urls), len(expectedURLs))
@@ -64,4 +64,46 @@ func TestParseContent(t *testing.T) {
 		}
 	}
 
+}
+
+func TestURLQueue(t *testing.T) {
+	q := concurrency.NewQueue()
+
+	q.Add("http://example.com")
+
+	url := q.Next()
+	if url != "http://example.com" {
+		t.Errorf("Expected 'http://example.com', got '%s'", url)
+	}
+
+	if q.IsEmpty() {
+		t.Errorf("Queue should not be empty after adding a URL")
+	}
+
+	q.MarkVisited(url)
+	if !q.IsVisited(url) {
+		t.Errorf("URL should be marked as visited")
+	}
+}
+
+func TestBasicCrawl(t *testing.T) {
+	ts := newTestServer()
+
+	defer ts.Close()
+
+	q := concurrency.NewQueue()
+
+	q.Add(ts.URL)
+
+	concurrency.CrawlNextURL(q, ts.URL)
+
+	if q.IsEmpty() {
+		t.Errorf("Queue should not be empty after crawling")
+	}
+
+	expectedQueueSize := 3
+
+	if q.Size() != expectedQueueSize {
+		t.Errorf("Expected %d URLs in queue, got %d", expectedQueueSize, q.Size())
+	}
 }

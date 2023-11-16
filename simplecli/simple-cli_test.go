@@ -43,3 +43,30 @@ func TestListFiles(t *testing.T) {
 		t.Errorf("Expected %v, got %v", expected, files)
 	}
 }
+
+func TestFilterFilesByExtension(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "testdir_*")
+
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	_, err = os.Create(filepath.Join(tempDir, "file1.txt"))
+	_, err = os.Create(filepath.Join(tempDir, "file2.jpg"))
+	_, err = os.Create(filepath.Join(tempDir, "file3.txt"))
+
+	txtFiles, err := simplecli.FilterFilesByExtension(tempDir, "txt")
+
+	if err != nil {
+		t.Fatalf("FilterFilesByExtension returned an error: %v", err)
+	}
+
+	sort.Strings(txtFiles)
+
+	expected := []string{"file1.txt", "file3.txt"}
+
+	if !reflect.DeepEqual(expected, txtFiles) {
+		t.Errorf("Expected %v, got %v", expected, txtFiles)
+	}
+}

@@ -56,7 +56,9 @@ func TestFilterFilesByExtension(t *testing.T) {
 	_, err = os.Create(filepath.Join(tempDir, "file2.jpg"))
 	_, err = os.Create(filepath.Join(tempDir, "file3.txt"))
 
-	txtFiles, err := simplecli.FilterFilesByExtension(tempDir, "txt")
+	files, err := simplecli.ListFiles(tempDir)
+
+	txtFiles, err := simplecli.FilterFiles(files, "txt")
 
 	if err != nil {
 		t.Fatalf("FilterFilesByExtension returned an error: %v", err)

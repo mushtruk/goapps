@@ -58,7 +58,7 @@ func TestFilterFilesByExtension(t *testing.T) {
 
 	files, err := simplecli.ListFiles(tempDir)
 
-	txtFiles, err := simplecli.FilterFiles(files, "txt")
+	txtFiles, err := simplecli.FilterFilesByExtension(files, "txt")
 
 	if err != nil {
 		t.Fatalf("FilterFilesByExtension returned an error: %v", err)
@@ -70,5 +70,40 @@ func TestFilterFilesByExtension(t *testing.T) {
 
 	if !reflect.DeepEqual(expected, txtFiles) {
 		t.Errorf("Expected %v, got %v", expected, txtFiles)
+	}
+}
+
+func TestFilterFilesBySize(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "testdir")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	createTempFile(t, tempDir, "file1.txt", 100)  // 100 bytes
+	createTempFile(t, tempDir, "file2.txt", 2000) // 2000 bytes
+
+	files, err := simplecli.FilterFilesBySize([]string{filepath.Join(tempDir, "file1.txt"), filepath.Join(tempDir, "file2.txt")}, 1500)
+	if err != nil {
+		t.Fatalf("FilterFilesBySize returned an error: %v", err)
+	}
+
+	expected := []string{filepath.Join(tempDir, "file1.txt")}
+	if !reflect.DeepEqual(files, expected) {
+		t.Errorf("Expected %v, got %v", expected, files)
+	}
+}
+
+func createTempFile(t *testing.T, dir, name string, size int) {
+	path := filepath.Join(dir, name)
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	if err := f.Truncate(int64(size)); err != nil {
+		t.Fatalf("Failed to set size of temp file: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Failed to close temp file: %v", err)
 	}
 }

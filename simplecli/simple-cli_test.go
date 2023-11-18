@@ -107,3 +107,42 @@ func createTempFile(t *testing.T, dir, name string, size int) {
 		t.Fatalf("Failed to close temp file: %v", err)
 	}
 }
+
+func TestListFilesRecursively(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "testdir")
+
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+
+	defer os.RemoveAll(tempDir)
+
+	createNestedFiles(t, tempDir, []string{"file1.txt", "subdir/file2.txt", "file2.txt", "subdir1/subdir2/file4.txt"})
+
+	files, err := simplecli.ListFilesRecursively(tempDir)
+
+	expected := []string{"file1.txt", "subdir/file2.txt", "file2.txt", "subdir1/subdir2/file4.txt"}
+
+	sort.Strings(files)
+	sort.Strings(expected)
+
+	// Verify
+	if !reflect.DeepEqual(files, expected) {
+		t.Errorf("Expected %v, got %v", expected, files)
+	}
+}
+
+func createNestedFiles(t *testing.T, dirName string, paths []string) {
+	for _, path := range paths {
+		fullPath := filepath.Join(dirName, path)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0755)
+
+		if err != nil {
+			t.Fatalf("Failed to create subdirectory: %v", err)
+		}
+		_, err = os.Create(fullPath)
+		if err != nil {
+			t.Fatalf("Failed to create file: %v", err)
+		}
+	}
+}

@@ -36,42 +36,58 @@ func ParseFlags() CLIOptions {
 	}
 }
 
+type FilterFunc func([]string) ([]string, error)
+
 func Init(opts CLIOptions) {
-	var files []string
-	var err error
-
-	// List files, either recursively or not based on the opts.Recursive flag
-	if opts.Recursive {
-		files, err = ListFilesRecursively(opts.DirPath)
-	} else {
-		files, err = ListFiles(opts.DirPath)
-	}
-
+	files, err := listFilesBasedOnFlag(opts)
 	if err != nil {
 		log.Fatalf("Error listing files: %v", err)
 	}
 
-	// Apply the extension filter if specified
+	filters := getFilters(opts)
+	for _, filter := range filters {
+		files, err = filter(files)
+		if err != nil {
+			log.Fatalf("Error applying filter: %v", err)
+		}
+	}
+
+	err = outputFiles(files, opts.Output)
+	if err != nil {
+		log.Fatalf("Error outputting files: %v", err)
+	}
+}
+
+func listFilesBasedOnFlag(opts CLIOptions) ([]string, error) {
+	if opts.Recursive {
+		return ListFilesRecursively(opts.DirPath)
+	}
+	return ListFiles(opts.DirPath)
+}
+
+func getFilters(opts CLIOptions) []FilterFunc {
+	var filters []FilterFunc
+
 	if opts.Extension != "" {
-		files, err = FilterFilesByExtension(files, opts.Extension)
-		if err != nil {
-			log.Fatalf("Error filtering files by extension: %v", err)
-		}
+		filters = append(filters, func(files []string) ([]string, error) {
+			return FilterFilesByExtension(files, opts.Extension)
+		})
 	}
-
 	if opts.MaxSize >= 0 {
-		files, err = FilterFilesBySize(files, opts.MaxSize)
-		if err != nil {
-			log.Fatalf("Error filtering files by size: %v", err)
-		}
+		filters = append(filters, func(files []string) ([]string, error) {
+			return FilterFilesBySize(files, opts.MaxSize)
+		})
 	}
 
-	// Handle different output formats
-	switch opts.Output {
+	return filters
+}
+
+func outputFiles(files []string, format string) error {
+	switch format {
 	case "json":
 		jsonData, err := json.Marshal(files)
 		if err != nil {
-			log.Fatalf("Error marshaling files to JSON: %v", err)
+			return err
 		}
 		fmt.Println(string(jsonData))
 	default:
@@ -79,6 +95,7 @@ func Init(opts CLIOptions) {
 			fmt.Println(file)
 		}
 	}
+	return nil
 }
 
 func ListFiles(directory string) ([]string, error) {

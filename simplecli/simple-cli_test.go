@@ -1,12 +1,17 @@
 package simplecli_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"goapps/simplecli"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestListFiles(t *testing.T) {
@@ -145,4 +150,44 @@ func createNestedFiles(t *testing.T, dirName string, paths []string) {
 			t.Fatalf("Failed to create file: %v", err)
 		}
 	}
+}
+
+func TestOutputAsJSON(t *testing.T) {
+	// Setup: create a temporary directory with some files
+	tempDir, err := os.MkdirTemp("", "testdir")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	createTempFile(t, tempDir, "file1.txt", 100)
+	createTempFile(t, tempDir, "file2.txt", 200)
+
+	// Simulate CLIOptions with JSON output
+	opts := simplecli.CLIOptions{
+		DirPath: tempDir,
+		MaxSize: -1,
+		Output:  "json",
+	}
+
+	// Capture the standard output
+	originalStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Execute the Init function (or the relevant function that prints the output)
+	simplecli.Init(opts)
+
+	// Read the output
+	w.Close()
+	os.Stdout = originalStdout
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Verify that the output is correctly formatted as JSON
+	var files []string
+	err = json.Unmarshal([]byte(output), &files)
+	require.NoError(t, err)
+	require.Len(t, files, 2)
+	require.Contains(t, files, "file1.txt")
+	require.Contains(t, files, "file2.txt")
 }

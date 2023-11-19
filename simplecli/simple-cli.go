@@ -1,6 +1,7 @@
 package simplecli
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -14,6 +15,7 @@ type CLIOptions struct {
 	Extension string
 	MaxSize   int
 	Recursive bool
+	Output    string
 }
 
 func ParseFlags() CLIOptions {
@@ -21,6 +23,7 @@ func ParseFlags() CLIOptions {
 	extension := flag.String("ext", "", "File extension to filter by (e.g., .txt)")
 	size := flag.Int("size", -1, "File size to filter by")
 	recursive := flag.Bool("recursive", false, "List files in directories recursively")
+	output := flag.String("output", "text", "Output format (e.g., 'text', 'JSON'")
 
 	flag.Parse()
 
@@ -29,6 +32,7 @@ func ParseFlags() CLIOptions {
 		Extension: *extension,
 		MaxSize:   *size,
 		Recursive: *recursive,
+		Output:    *output,
 	}
 }
 
@@ -62,8 +66,18 @@ func Init(opts CLIOptions) {
 		}
 	}
 
-	for _, file := range files {
-		fmt.Println(file)
+	// Handle different output formats
+	switch opts.Output {
+	case "json":
+		jsonData, err := json.Marshal(files)
+		if err != nil {
+			log.Fatalf("Error marshaling files to JSON: %v", err)
+		}
+		fmt.Println(string(jsonData))
+	default:
+		for _, file := range files {
+			fmt.Println(file)
+		}
 	}
 }
 

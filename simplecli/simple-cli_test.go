@@ -3,6 +3,7 @@ package simplecli_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"goapps/simplecli"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -166,6 +168,7 @@ func TestOutputAsJSON(t *testing.T) {
 		DirPath: tempDir,
 		MaxSize: -1,
 		Output:  "json",
+		SortMod: false,
 	}
 
 	// Capture the standard output
@@ -190,4 +193,36 @@ func TestOutputAsJSON(t *testing.T) {
 	require.Len(t, files, 2)
 	require.Contains(t, files, "file1.txt")
 	require.Contains(t, files, "file2.txt")
+}
+
+func TestSortByModificationTime(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "tempDir")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// Create some files with different modification times
+	filepath1 := createTempFileWithModTime(t, tempDir, "file1.txt", time.Now())
+	filepath2 := createTempFileWithModTime(t, tempDir, "file2.txt", time.Now().Add(-time.Duration(time.Now().Year())))
+
+	testFilePaths := []string{filepath1, filepath2}
+
+	fmt.Printf("Filepaths are %v: \n", testFilePaths)
+
+	files, err := simplecli.SortFilesByModTime(testFilePaths)
+	require.NoError(t, err)
+
+	expected := []string{filepath1, filepath2}
+	require.Equal(t, expected, files)
+}
+
+func createTempFileWithModTime(t *testing.T, dir, name string, modTime time.Time) string {
+	path := filepath.Join(dir, name)
+	file, err := os.Create(path)
+	require.NoError(t, err)
+	file.Close()
+
+	err = os.Chtimes(path, modTime, modTime)
+	require.NoError(t, err)
+
+	return path
 }

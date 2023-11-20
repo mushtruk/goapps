@@ -7,7 +7,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 )
 
 type CLIOptions struct {
@@ -15,6 +17,7 @@ type CLIOptions struct {
 	Extension string
 	MaxSize   int
 	Recursive bool
+	SortMod   bool
 	Output    string
 }
 
@@ -24,6 +27,7 @@ func ParseFlags() CLIOptions {
 	size := flag.Int("size", -1, "File size to filter by")
 	recursive := flag.Bool("recursive", false, "List files in directories recursively")
 	output := flag.String("output", "text", "Output format (e.g., 'text', 'JSON'")
+	sortByModTime := flag.Bool("sortByModTime", false, "Sort files by modification time")
 
 	flag.Parse()
 
@@ -32,6 +36,7 @@ func ParseFlags() CLIOptions {
 		Extension: *extension,
 		MaxSize:   *size,
 		Recursive: *recursive,
+		SortMod:   *sortByModTime,
 		Output:    *output,
 	}
 }
@@ -76,6 +81,12 @@ func getFilters(opts CLIOptions) []FilterFunc {
 	if opts.MaxSize >= 0 {
 		filters = append(filters, func(files []string) ([]string, error) {
 			return FilterFilesBySize(files, opts.MaxSize)
+		})
+	}
+
+	if opts.SortMod {
+		filters = append(filters, func(files []string) ([]string, error) {
+			return SortFilesByModTime(files)
 		})
 	}
 
@@ -159,4 +170,38 @@ func ListFilesRecursively(directory string) ([]string, error) {
 	})
 
 	return files, err
+}
+
+func SortFilesByModTime(filePaths []string) ([]string, error) {
+	type fileModTime struct {
+		path    string
+		modTime time.Time
+	}
+
+	var filesWithModTime []fileModTime
+
+	for _, file := range filePaths {
+		info, err := os.Stat(file)
+
+		if err != nil {
+			return nil, err
+		}
+
+		filesWithModTime = append(filesWithModTime, fileModTime{
+			path:    file,
+			modTime: info.ModTime(),
+		})
+	}
+
+	sort.Slice(filesWithModTime, func(i, j int) bool {
+		return filesWithModTime[i].modTime.Before(filesWithModTime[i].modTime)
+	})
+
+	var sortedFiles []string
+
+	for _, file := range filesWithModTime {
+		sortedFiles = append(sortedFiles, file.path)
+	}
+
+	return sortedFiles, nil
 }

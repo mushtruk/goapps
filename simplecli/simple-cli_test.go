@@ -3,13 +3,13 @@ package simplecli_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"goapps/simplecli"
 	"io"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -206,8 +206,6 @@ func TestSortByModificationTime(t *testing.T) {
 
 	testFilePaths := []string{filepath1, filepath2}
 
-	fmt.Printf("Filepaths are %v: \n", testFilePaths)
-
 	files, err := simplecli.SortFilesByModTime(testFilePaths)
 	require.NoError(t, err)
 
@@ -225,4 +223,41 @@ func createTempFileWithModTime(t *testing.T, dir, name string, modTime time.Time
 	require.NoError(t, err)
 
 	return path
+}
+
+func TestFilterFilesByPattern(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "tempDir")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	createTempFile(t, tempDir, "sample1.txt", 1)
+	createTempFile(t, tempDir, "test1.txt", 1)
+	createTempFile(t, tempDir, "sample2.txt", 1)
+	createTempFile(t, tempDir, "test3.txt", 1)
+
+	opts := simplecli.CLIOptions{
+		DirPath: tempDir,
+		MaxSize: -1,
+		Pattern: "sample.*",
+	}
+
+	originalStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	simplecli.Init(opts)
+
+	w.Close()
+	os.Stdout = originalStdout
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Process the text output
+	files := []string{}
+	if output != "" {
+		files = strings.Split(strings.TrimSpace(output), "\n")
+	}
+	expected := []string{"sample1.txt", "sample2.txt"}
+	require.ElementsMatch(t, expected, files)
 }

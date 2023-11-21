@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ type CLIOptions struct {
 	Recursive bool
 	SortMod   bool
 	Output    string
+	Pattern   string
 }
 
 func ParseFlags() CLIOptions {
@@ -28,6 +30,7 @@ func ParseFlags() CLIOptions {
 	recursive := flag.Bool("recursive", false, "List files in directories recursively")
 	output := flag.String("output", "text", "Output format (e.g., 'text', 'JSON'")
 	sortByModTime := flag.Bool("sortByModTime", false, "Sort files by modification time")
+	pattern := flag.String("pattern", "", "Regex pattern to filter files")
 
 	flag.Parse()
 
@@ -38,6 +41,7 @@ func ParseFlags() CLIOptions {
 		Recursive: *recursive,
 		SortMod:   *sortByModTime,
 		Output:    *output,
+		Pattern:   *pattern,
 	}
 }
 
@@ -90,6 +94,12 @@ func getFilters(opts CLIOptions) []FilterFunc {
 		})
 	}
 
+	if opts.Pattern != "" {
+		filters = append(filters, func(files []string) ([]string, error) {
+			return FilterFilesByPattern(files, opts.Pattern)
+		})
+	}
+
 	return filters
 }
 
@@ -102,9 +112,11 @@ func outputFiles(files []string, format string) error {
 		}
 		fmt.Println(string(jsonData))
 	default:
+		var sb strings.Builder
 		for _, file := range files {
-			fmt.Println(file)
+			sb.WriteString(file + "\n")
 		}
+		fmt.Print(sb.String())
 	}
 	return nil
 }
@@ -204,4 +216,20 @@ func SortFilesByModTime(filePaths []string) ([]string, error) {
 	}
 
 	return sortedFiles, nil
+}
+
+func FilterFilesByPattern(files []string, pattern string) ([]string, error) {
+	var filteredFiles []string
+	regex, err := regexp.Compile(pattern)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		if regex.MatchString(file) {
+			filteredFiles = append(filteredFiles, file)
+		}
+	}
+	return filteredFiles, err
 }

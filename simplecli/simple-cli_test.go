@@ -261,3 +261,24 @@ func TestFilterFilesByPattern(t *testing.T) {
 	expected := []string{"sample1.txt", "sample2.txt"}
 	require.ElementsMatch(t, expected, files)
 }
+
+func TestCalculateMD5Checksum(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "tempDir")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	filePath := createFileWithContent(t, tempDir, "sample.txt", "Goodbye, world!")
+
+	expectedChecksum := "f6da94e9c2d5ac46e9e8ecee3a1731ff"
+
+	actualChecksum, err := simplecli.CalculateMD5Checksum(filePath)
+	require.NoError(t, err)
+	require.Equal(t, expectedChecksum, actualChecksum)
+}
+
+func createFileWithContent(t *testing.T, dir, name, content string) string {
+	path := filepath.Join(dir, name)
+	err := os.WriteFile(path, []byte(content), 0666)
+	require.NoError(t, err)
+	return path
+}

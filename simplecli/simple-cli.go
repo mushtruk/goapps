@@ -1,9 +1,11 @@
 package simplecli
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,6 +23,7 @@ type CLIOptions struct {
 	SortMod   bool
 	Output    string
 	Pattern   string
+	Checksum  string
 }
 
 func ParseFlags() CLIOptions {
@@ -31,6 +34,7 @@ func ParseFlags() CLIOptions {
 	output := flag.String("output", "text", "Output format (e.g., 'text', 'JSON'")
 	sortByModTime := flag.Bool("sortByModTime", false, "Sort files by modification time")
 	pattern := flag.String("pattern", "", "Regex pattern to filter files")
+	checksum := flag.String("checksum", "", "Calculate the MD5 checksum of a specified file")
 
 	flag.Parse()
 
@@ -42,6 +46,7 @@ func ParseFlags() CLIOptions {
 		SortMod:   *sortByModTime,
 		Output:    *output,
 		Pattern:   *pattern,
+		Checksum:  *checksum,
 	}
 }
 
@@ -51,6 +56,15 @@ func Init(opts CLIOptions) {
 	files, err := listFilesBasedOnFlag(opts)
 	if err != nil {
 		log.Fatalf("Error listing files: %v", err)
+	}
+
+	if opts.Checksum != "" {
+		checksum, err := CalculateMD5Checksum(opts.Checksum)
+		if err != nil {
+			log.Fatalf("Error calculating checksum: %v", err)
+		}
+		fmt.Println("MD5 Checksum:", checksum)
+		return
 	}
 
 	filters := getFilters(opts)
@@ -232,4 +246,22 @@ func FilterFilesByPattern(files []string, pattern string) ([]string, error) {
 		}
 	}
 	return filteredFiles, err
+}
+
+func CalculateMD5Checksum(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+
+	if err != nil {
+		return "", err
+	}
+
+	defer file.Close()
+
+	hasher := md5.New()
+
+	if _, err := io.Copy(hasher, file); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
